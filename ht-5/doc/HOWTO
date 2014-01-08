@@ -1,0 +1,161 @@
+* OVERVIEW
+* KL15
+* GETTING ROOT, VIA SERIAL
+* GETTING ROOT, VIA MICROSD ROOTFS
+* SERIAL PORT
+
+OVERVIEW
+========
+
+1. get root
+2. get python
+3. script your car.
+
+There are two methods to get root (which are not exclusive to each other);
+either with the serial port, changing the root password to something known,
+or by booting from a microSD card.
+
+KL15
+====
+
+In order to make the device boot at all, a message needs to be received over
+CAN that enables the main CPU. One way is to just leave the HT-5 connected
+in a car, another is to attach a CAN adapter and send the following message:
+
+ID 661, 0300000000000000
+
+Use can use KiSim for this.
+
+
+GETTING ROOT, VIA SERIAL
+========================
+
+There are multiple options of obtaining root access to the HT-5. 
+
+One way is to boot into a failover system that's already in flash, and then
+rw-mount the real rootfs, changing the password. 
+
+This requires accesing the SERIAL PORT. Power up the device, send the
+KL15 message, and keep hammering Ctrl+C to interrupt U-Boot.
+
+
+1. boot into failover system
+> setenv bootargs ${bootargs} set_rootfs=generic@flash
+> boot
+
+
+2. mount real rootfs read-writable
+> mkdir /rootfs
+> mount -t jffs2 -o rw /dev/mtdblock0 /rootfs
+> cd /rootfs/etc
+
+
+3. add a custom user without a password
+> echo "rootnopwd::0:0:root:/root:/bin/sh" >> /etc/passwd
+
+4. unmount rootfs
+> cd /
+> umount /rootfs
+
+
+5. reboot normally, and use the new user.
+> GEMINI (G1_0982_ML8D_SP4.64) Wed Sep 11 22:44:30 CEST 2013
+>
+> Gemini login: rootnopwd
+> Gemini:~#
+
+GETTING ROOT, VIA MICROSD ROOTFS
+=================================
+
+This is to-be-completed. 
+
+The idea is to create a rootfs on a MicroSD card, which the
+HT-5 will boot from. (You need to add the MicroSD slot, so it requires a bit
+of soldering. Other than the slot itself, no other hardware is necessary
+(though there is an unpopulated bias cap which might be a good idea to
+populate.) The slot is on the bottom side, in the middle, opposite to the
+car connector.) You can then either run the regular rootfs, and add a full
+chroot on the SD-Card (with python), or run your own rootfs, and integrate
+all of the existing services.
+
+The rdinit script tries to boot from /dev/mmcblk0p2, so you need to create
+two partitions, with the first partition being the root partition.
+
+An easy way to create a rootfs is using emdebian's multistrap, which can be
+done like this:
+
+# install multistrap, qemu
+apt-get install multistrap dpkg-dev binfmt-support qemu qemu-user-static
+# bootstrap emdebian image
+multistrap -a armel -d $PWD/RFS -f multistrap.conf
+# install qemu to finish the installation
+cp /usr/bin/qemu-arm-static RFS/usr/bin
+# chroot into new rootfs
+chroot RFS /bin/bash
+# fixup isntgallation
+export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true
+export LC_ALL=C LANGUAGE=C LANG=C
+/var/lib/dpkg/info/dash.preinst install
+dpkg --configure -a
+mount proc -t proc /proc
+dpkg --configure -a
+
+# add serial shell
+echo "T0:23:respawn:/sbin/getty -L ttyS0 115200 vt100" >> /etc/inittab
+mknod /dev/ttyS0 c 4 64 # or rely on udev
+
+# create init
+ln /sbin/init /init
+
+# enable root user
+passwd
+
+exit
+
+Then, move this rootfs into an ext2/3 fs as the SECOND partition on a microSD 
+card. Plug it into the HT-5, and it should boot:
+
+[...]
+[    3.961975] Freeing init memory: 568K
+Try android generic rootfs on flash mmc0 mmc1 nand nfs device ...
+extract init img from /dev/mtdblock0...
+extract init img from /dev/mmcblk0...
+try to boot from /dev/mmcblk0p2...
+[    4.537536] EXT3-fs: barriers not enabled
+[   18.977691] kjournald starting.  Commit interval 5 seconds
+[   19.948699] EXT3-fs (mmcblk0p2): mounted filesystem with writeback data mode
+clean before boot to rootfs...
+INIT: version 2.88 booting
+Using makefile-style concurrent boot in runlevel S.
+Setting the system clock.
+[...]
+
+You should then boot into a regular emdebian rootfs, and finally get a
+serial console:
+
+Debian GNU/Linux 7 192.168.1.101 ttyS0
+
+192 login:
+
+However there is nothing yet that refreshes the s12x watchdog, so at some
+point, the system will reboot.
+
+FIXME: emdebian's udev is incompatible, since the kernel doesn't have accept4.
+I will not spend time on fixing udev's really stupid issues. udev just showed
+itself as a showstopper. Live with it. "Upgrade your kernel" is the usual 
+response for complains. Good luck in upgrading your kernel.
+
+[Or really: just get rid of udev.]
+
+TODO: boot into a shell script that mounts /dev/mtdblock0, copies everything
+to SD card, and boots from there.
+
+SERIAL PORT
+===========
+
+The serial port is available as test points, or on the car connector:
+
+23 - RX
+24 - TX
+
+It's a regular LVTTL UART.
