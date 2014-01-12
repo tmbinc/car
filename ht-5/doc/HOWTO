@@ -1,5 +1,6 @@
 * OVERVIEW
 * KL15
+* GETTING ROOT, VIA USB MASS STORAGE
 * GETTING ROOT, VIA SERIAL
 * GETTING ROOT, VIA MICROSD ROOTFS
 * SERIAL PORT
@@ -26,14 +27,43 @@ ID 661, 0300000000000000
 
 Use can use KiSim for this.
 
+GETTING ROOT, VIA USB MASS STORAGE
+==================================
+
+The simplest way to get root is this:
+
+Buy a USB Micro-B OTG adapter. They are usually sold for Android devices,
+and are pretty cheap in the usual places. Make sure they connect the ID pin
+correctly (but really, most of them do).
+
+Get a FAT32-formatted USB mass storage stick, and place noveroexec.sh on it
+(root directory).
+
+On the HT-5, there is a small plastic latch (no need to open the device!)
+which hides a USB micro-B plug. Plugin the USB stick, and a few seconds
+later, you should see a message on the display (make sure to switch to the
+phone screen first) (*).
+
+After that, a user named 'r00t' has been created, with empty password. You
+can now login using that user via serial port.
+
+TODO:
+ - open up network to allow connection via WiFi
+ - change USB OTG port to RNDIS to allow connnection over RNDIS
+
+There is a commented-out function in noveroexec.sh that switches the OTG
+port to rndis, but it reset the USB port, so the mass storage gets
+enumerated again, causing a (harmless) loop until you unplug the device.
+
+(*) NOTE, as of now, I only tested this with KiSim.
 
 GETTING ROOT, VIA SERIAL
 ========================
 
-There are multiple options of obtaining root access to the HT-5. 
+There are multiple options of obtaining root access to the HT-5.
 
 One way is to boot into a failover system that's already in flash, and then
-rw-mount the real rootfs, changing the password. 
+rw-mount the real rootfs, changing the password.
 
 This requires accesing the SERIAL PORT. Power up the device, send the
 KL15 message, and keep hammering Ctrl+C to interrupt U-Boot.
@@ -51,7 +81,7 @@ KL15 message, and keep hammering Ctrl+C to interrupt U-Boot.
 
 
 3. add a custom user without a password
-> echo "rootnopwd::0:0:root:/root:/bin/sh" >> /etc/passwd
+> echo "rootnopwd::0:0:root:/root:/bin/sh" >> /rootfs/etc/passwd
 
 4. unmount rootfs
 > cd /
@@ -67,7 +97,7 @@ KL15 message, and keep hammering Ctrl+C to interrupt U-Boot.
 GETTING ROOT, VIA MICROSD ROOTFS
 =================================
 
-This is to-be-completed. 
+This is to-be-completed.
 
 The idea is to create a rootfs on a MicroSD card, which the
 HT-5 will boot from. (You need to add the MicroSD slot, so it requires a bit
@@ -112,7 +142,7 @@ passwd
 
 exit
 
-Then, move this rootfs into an ext2/3 fs as the SECOND partition on a microSD 
+Then, move this rootfs into an ext2/3 fs as the SECOND partition on a microSD
 card. Plug it into the HT-5, and it should boot:
 
 [...]
@@ -142,7 +172,7 @@ point, the system will reboot.
 
 FIXME: emdebian's udev is incompatible, since the kernel doesn't have accept4.
 I will not spend time on fixing udev's really stupid issues. udev just showed
-itself as a showstopper. Live with it. "Upgrade your kernel" is the usual 
+itself as a showstopper. Live with it. "Upgrade your kernel" is the usual
 response for complains. Good luck in upgrading your kernel.
 
 [Or really: just get rid of udev.]
