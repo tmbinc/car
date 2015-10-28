@@ -34,7 +34,7 @@ The simplest way to get root is this:
 
 Buy a USB Micro-B OTG adapter. They are usually sold for Android devices,
 and are pretty cheap in the usual places. Make sure they connect the ID pin
-correctly (but really, most of them do).
+correctly (but really, most of them already do).
 
 Get a FAT32-formatted USB mass storage stick, and place noveroexec.sh on it
 (root directory).
